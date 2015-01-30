@@ -76,10 +76,6 @@ public class LinkerAnnotationProcessor extends AbstractProcessor {
     private boolean entryPointGenerated;
     private Messager messager;
 
-    public static ImmutableMap<String, String> processorQualifiedName() {
-        return ImmutableMap.of("value", format("%s", StringLiteral.forValue(LinkerAnnotationProcessor.class.getName()).literal()));
-    }
-
     @Override
     public Set<String> getSupportedOptions() {
         return ImmutableSet.of(GRAPH_OPTION);
