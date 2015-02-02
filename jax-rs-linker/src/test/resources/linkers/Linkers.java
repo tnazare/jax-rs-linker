@@ -1,14 +1,15 @@
 
 package fr.vidal.oss.jax_rs_linker;
 
+import fr.vidal.oss.jax_rs_linker.parser.BrandResourceLinker;
+import fr.vidal.oss.jax_rs_linker.parser.PersonResourceLinker;
+import fr.vidal.oss.jax_rs_linker.parser.ProductResourceLinker;
 import fr.vidal.oss.jax_rs_linker.servlet.ContextPaths;
+
 import javax.annotation.Generated;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
 import javax.servlet.annotation.WebListener;
-import fr.vidal.oss.jax_rs_linker.parser.BrandResourceLinker;
-import fr.vidal.oss.jax_rs_linker.parser.PersonResourceLinker;
-import fr.vidal.oss.jax_rs_linker.parser.ProductResourceLinker;
 
 @WebListener
 @Generated("fr.vidal.oss.jax_rs_linker.LinkerAnnotationProcessor")

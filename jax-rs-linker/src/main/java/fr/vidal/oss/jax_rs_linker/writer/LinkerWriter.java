@@ -1,12 +1,9 @@
 package fr.vidal.oss.jax_rs_linker.writer;
 
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.squareup.javapoet.*;
-import com.squareup.javawriter.StringLiteral;
 import fr.vidal.oss.jax_rs_linker.LinkerAnnotationProcessor;
 import fr.vidal.oss.jax_rs_linker.api.NoPathParameters;
 import fr.vidal.oss.jax_rs_linker.model.*;
@@ -19,9 +16,8 @@ import javax.annotation.processing.Filer;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Iterator;
 
-import static com.google.common.base.Throwables.propagate;
-import static com.squareup.javapoet.ClassName.bestGuess;
 import static com.squareup.javapoet.MethodSpec.constructorBuilder;
 import static java.lang.String.format;
 import static javax.lang.model.element.Modifier.*;
@@ -45,69 +41,48 @@ public class LinkerWriter {
 
         ApiPath selfApiPath = selfMapping.get().getApi().getApiPath();
 
-        com.squareup.javapoet.ClassName templatedPathClass = bestGuess(
-            parameterizedTemplatedPath(
-                selfApiPath,
-                generatedClass.className())
-        );
+        ClassName typeParameter = templatedPathTypeParameter(selfApiPath, generatedClass.fullyQualifiedName());
+        TypeName templatedPathClass =
+            ParameterizedTypeName.get(
+                com.squareup.javapoet.ClassName.get(TemplatedPath.class),
+                com.squareup.javapoet.ClassName.bestGuess(typeParameter.fullyQualifiedName())
+            );
 
         TypeSpec.Builder typeBuilder = TypeSpec.classBuilder(generatedClass.className())
-            .addAnnotation(
-                AnnotationSpec.builder(Generated.class)
-                    .addMember("value", LinkerAnnotationProcessor.class.getName())
-                    .build()
-            )
+            .addModifiers(PUBLIC, FINAL)
+            .addAnnotation(AnnotationSpec.builder(Generated.class)
+                .addMember("value", "$S", LinkerAnnotationProcessor.class.getName())
+                .build())
             .addField(FieldSpec.builder(String.class, "contextPath", PRIVATE, FINAL).build())
-            .addMethod(
-                constructorBuilder()
-                    .addModifiers(PUBLIC)
-                    .addCode("this(\"\")")
-                    .build()
-            )
-            .addMethod(
-                constructorBuilder()
-                    .addModifiers(PUBLIC)
-                    .addParameter(
-                        ParameterSpec.builder(String.class, "contextPath", FINAL).build())
-                    .addCode("this.contextPath = contextPath")
-                    .build()
-            )
-            .addMethod(
-                MethodSpec.methodBuilder("self")
-                    .addModifiers(PUBLIC)
-                    .returns(templatedPathClass)
-                    .addCode(
-                        "return new $T(contextPath + $S, $T.<$T>asList($S))",
-                        templatedPathClass,
-                        selfApiPath.getPath(),
-                        Arrays.class,
-                        PathParameter.class,
-                        parameters(selfApiPath.getPathParameters())
-                    )
-                    .build()
-            );
+            .addMethod(constructorBuilder()
+                .addModifiers(PUBLIC)
+                .addCode("this($S);\n", "")
+                .build())
+            .addMethod(constructorBuilder()
+                .addModifiers(PUBLIC)
+                .addParameter(
+                    ParameterSpec.builder(String.class, "contextPath", FINAL).build())
+                .addStatement("this.$L = $L", "contextPath", "contextPath")
+                .build())
+            .addMethod(MethodSpec.methodBuilder("self")
+                .addModifiers(PUBLIC, FINAL)
+                .returns(templatedPathClass)
+                .addStatement(
+                    "return new $T(contextPath + $S, $T.<$T>asList($L))",
+                    templatedPathClass,
+                    selfApiPath.getPath(),
+                    Arrays.class,
+                    PathParameter.class,
+                    parametersAsList(selfApiPath.getPathParameters())
+                )
+                .build());
 
         for (Mapping mapping : linked(mappings)) {
             Api api = mapping.getApi();
             ClassName target = api.getApiLink().getTarget().get();
-            ApiPath apiPath = api.getApiPath();
-            typeBuilder.addMethod(
-                MethodSpec.methodBuilder(format("related%s", target.className()))
+            typeBuilder.addMethod(MethodSpec.methodBuilder(format("related%s", target.className()))
                     .returns(templatedPathClass)
                     .addModifiers(PUBLIC, FINAL)
-                    .addCode(
-                        "$T path = new $T($S,$T.<$T>asList($S)",
-                        ApiPath.class,
-                        ApiPath.class,
-                        apiPath.getPath(),
-                        Arrays.class,
-                        PathParameter.class,
-                        parameters(apiPath.getPathParameters())
-                    )
-                    .addCode(
-                        "return new %T(contextPath + path.getPath(), path.getPathParameters())",
-                        templatedPathClass
-                    )
                     .build()
             );
         }
@@ -119,11 +94,11 @@ public class LinkerWriter {
 
     }
 
-    private String parameterizedTemplatedPath(ApiPath apiPath, String generatedClass) {
+    private ClassName templatedPathTypeParameter(ApiPath apiPath, String generatedClass) {
         if (apiPath.getPathParameters().isEmpty()) {
-            return format("TemplatedPath<%s>", NoPathParameters.class.getSimpleName());
+            return ClassName.valueOf(NoPathParameters.class.getName());
         }
-        return format("TemplatedPath<%s>", generatedClass.replace("Linker", "PathParameters"));
+        return ClassName.valueOf(generatedClass.replace("Linker", "PathParameters"));
     }
 
     private Iterable<Mapping> linked(Collection<Mapping> mappings) {
@@ -133,20 +108,19 @@ public class LinkerWriter {
     }
 
 
-    private String parameters(Collection<PathParameter> pathParameters) {
-        return FluentIterable.from(pathParameters)
-            .transform(new Function<PathParameter, String>() {
-                @Nullable
-                @Override
-                public String apply(PathParameter input) {
-                    return format(
-                            "new PathParameter(ClassName.valueOf(%s), %s)",
-                            StringLiteral.forValue(input.getType().fullyQualifiedName()).literal(),
-                            StringLiteral.forValue(input.getName()).literal()
-                    );
-                }
-            })
-            .join(Joiner.on(", "));
-    }
+    private String parametersAsList(Collection<PathParameter> pathParameters) {
+        StringBuilder builder = new StringBuilder();
+        for (Iterator<PathParameter> iterator = pathParameters.iterator(); iterator.hasNext(); ) {
+            PathParameter parameter = iterator.next();
+            String separator = iterator.hasNext() ? "," : "";
+            builder.append(String.format(
+                "new PathParameter(ClassName.valueOf(%s.class), \"%s\")%s",
+                parameter.getType(),
+                parameter.getName(),
+                separator
+            ));
+        }
 
+        return builder.toString();
+    }
 }

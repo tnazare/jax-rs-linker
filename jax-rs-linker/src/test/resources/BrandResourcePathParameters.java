@@ -1,6 +1,7 @@
 package fr.vidal.oss.jax_rs_linker.parser;
 
 import fr.vidal.oss.jax_rs_linker.api.PathParameters;
+
 import javax.annotation.Generated;
 
 @Generated("fr.vidal.oss.jax_rs_linker.LinkerAnnotationProcessor")

@@ -1,12 +1,11 @@
 package fr.vidal.oss.jax_rs_linker.parser;
 
-import fr.vidal.oss.jax_rs_linker.api.NoPathParameters;
-import fr.vidal.oss.jax_rs_linker.model.ApiPath;
 import fr.vidal.oss.jax_rs_linker.model.ClassName;
 import fr.vidal.oss.jax_rs_linker.model.PathParameter;
 import fr.vidal.oss.jax_rs_linker.model.TemplatedPath;
-import java.util.Arrays;
+
 import javax.annotation.Generated;
+import java.util.Arrays;
 
 @Generated("fr.vidal.oss.jax_rs_linker.LinkerAnnotationProcessor")
 public class BrandResourceLinker {
